@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Lightweight Charts - Pine Script Loader</title>
+		<link href="./style.css" rel="stylesheet" />
+		<style>
+			body {
+				max-width: 1200px;
+				margin: 32px auto;
+				padding: 0 20px 80px;
+				color: #0f172a;
+				background: #0b1021;
+			}
+			.page {
+				display: grid;
+				grid-template-columns: 1fr 360px;
+				gap: 24px;
+				align-items: start;
+			}
+			.card {
+				background: rgba(255, 255, 255, 0.03);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 16px;
+				padding: 18px 20px;
+				box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+				backdrop-filter: blur(4px);
+			}
+			label {
+				display: block;
+				font-weight: 600;
+				color: #e2e8f0;
+				margin-bottom: 6px;
+			}
+			textarea,
+			select,
+			button {
+				width: 100%;
+				border-radius: 12px;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				background: rgba(255, 255, 255, 0.05);
+				color: #e2e8f0;
+				font-size: 14px;
+				padding: 10px 12px;
+			}
+			textarea {
+				min-height: 220px;
+				font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+				resize: vertical;
+			}
+			button {
+				cursor: pointer;
+				font-weight: 700;
+				transition: transform 120ms ease, background 120ms ease;
+				background: linear-gradient(120deg, #06b6d4, #6366f1);
+				border: none;
+				margin-top: 10px;
+			}
+			button:hover {
+				transform: translateY(-1px);
+				filter: brightness(1.05);
+			}
+			.status {
+				font-size: 13px;
+				margin-top: 8px;
+				color: #94a3b8;
+			}
+			.chart-shell {
+				min-height: 520px;
+			}
+			#chart {
+				height: 520px;
+			}
+			.badge {
+				display: inline-flex;
+				gap: 6px;
+				align-items: center;
+				border-radius: 999px;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				padding: 6px 10px;
+				background: rgba(255, 255, 255, 0.05);
+				color: #cbd5e1;
+				font-size: 12px;
+				margin-bottom: 12px;
+			}
+			.warn {
+				color: #fbbf24;
+			}
+			@media (max-width: 980px) {
+				.page {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<h1 class="main-header">
+			<span class="line1">Pine Script loader</span>
+			<span class="line2">Lightweight Charts™</span>
+		</h1>
+		<p class="badge">
+			<span>⚠️</span>
+			<span class="warn">Offline demo: parses a tiny Pine subset (EMA, SMA, Bollinger Bands, RSI, MACD) for illustration.</span>
+		</p>
+		<div class="page">
+			<div class="card chart-shell">
+				<div id="chart"></div>
+				<div class="status" id="status">Paste Pine and click “Load indicator”.</div>
+			</div>
+			<div class="card">
+				<label for="pine">Pine Script (v5 subset)</label>
+				<textarea id="pine"></textarea>
+				<label for="length">Fallback length (EMA/SMA/RSI/MACD/BB)</label>
+				<select id="length">
+					<option value="20">20</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+				<label for="url">Load Pine from URL</label>
+				<div style="display: flex; gap: 8px; margin-bottom: 10px;">
+					<input
+						id="url"
+						type="url"
+						placeholder="https://example.com/script.pine"
+						style="flex: 1; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #e2e8f0; padding: 10px 12px;"
+					/>
+					<button id="load-url" style="width: 120px;">Fetch</button>
+				</div>
+				<label for="file">Or open a .pine file</label>
+				<input id="file" type="file" accept=".pine,.txt" />
+				<div style="margin: 10px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+					<label><input id="toggle-ema" type="checkbox" checked /> EMA</label>
+					<label><input id="toggle-sma" type="checkbox" checked /> SMA</label>
+					<label><input id="toggle-bb" type="checkbox" checked /> Bollinger</label>
+					<label><input id="toggle-rsi" type="checkbox" checked /> RSI</label>
+					<label><input id="toggle-macd" type="checkbox" checked /> MACD</label>
+					<label><input id="toggle-candles" type="checkbox" checked /> Candles</label>
+				</div>
+				<button id="run">Load indicator</button>
+				<div class="status">
+					Supported syntax: EMA(source, length), SMA(source, length), BBANDS(source, length, mult), RSI(source, length), MACD(source, fast, slow, signal).
+					Can also fetch Pine from URL or load a local file.
+				</div>
+			</div>
+		</div>
+
+		<script type="module">
+			import { createChart, CrosshairMode } from 'lightweight-charts';
+			import { generateCandleData, convertToLineData } from './sample-data';
+
+			const statusEl = document.getElementById('status');
+			const setStatus = (text) => {
+				statusEl.textContent = text;
+			};
+
+			const pineTextarea = document.getElementById('pine');
+			const lengthSelect = document.getElementById('length');
+			const runButton = document.getElementById('run');
+			const urlInput = document.getElementById('url');
+			const loadUrlBtn = document.getElementById('load-url');
+			const fileInput = document.getElementById('file');
+
+			const toggleEMA = document.getElementById('toggle-ema');
+			const toggleSMA = document.getElementById('toggle-sma');
+			const toggleBB = document.getElementById('toggle-bb');
+			const toggleRSI = document.getElementById('toggle-rsi');
+			const toggleMACD = document.getElementById('toggle-macd');
+			const toggleCandles = document.getElementById('toggle-candles');
+
+			const container = document.getElementById('chart');
+			const chart = createChart(container, {
+				width: container.clientWidth,
+				height: 520,
+				layout: { backgroundColor: '#0b1021', textColor: '#e2e8f0' },
+				grid: {
+					vertLines: { color: 'rgba(255,255,255,0.04)' },
+					horzLines: { color: 'rgba(255,255,255,0.04)' },
+				},
+				crosshair: { mode: CrosshairMode.Normal },
+				timeScale: { borderColor: 'rgba(255,255,255,0.12)' },
+				rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' },
+			});
+
+			const candleSeries = chart.addCandlestickSeries({
+				upColor: '#22c55e',
+				downColor: '#ef4444',
+				borderUpColor: '#22c55e',
+				borderDownColor: '#ef4444',
+				wickUpColor: '#22c55e',
+				wickDownColor: '#ef4444',
+			});
+
+			const candleData = generateCandleData(400, new Date(Date.UTC(2021, 0, 1)));
+			candleSeries.setData(candleData);
+
+			let emaSeries = chart.addLineSeries({
+				color: '#38bdf8',
+				lineWidth: 2,
+				priceLineVisible: false,
+			});
+			let smaSeries = chart.addLineSeries({
+				color: '#a3e635',
+				lineWidth: 2,
+				priceLineVisible: false,
+			});
+			let rsiSeries = chart.addLineSeries({
+				color: '#f97316',
+				lineWidth: 2,
+				priceLineVisible: false,
+				axisLabelVisible: false,
+				priceScaleId: 'rsi',
+			});
+			chart.priceScale('rsi').applyOptions({
+				scaleMargins: { top: 0.7, bottom: 0 },
+				borderColor: 'rgba(255,255,255,0.12)',
+				visible: true,
+			});
+			let macdLineSeries = chart.addLineSeries({
+				color: '#c084fc',
+				lineWidth: 2,
+				priceLineVisible: false,
+				priceScaleId: 'macd',
+			});
+			let macdSignalSeries = chart.addLineSeries({
+				color: '#22d3ee',
+				lineWidth: 1.5,
+				priceLineVisible: false,
+				priceScaleId: 'macd',
+			});
+			let macdHistSeries = chart.addHistogramSeries({
+				color: '#22c55e',
+				priceLineVisible: false,
+				priceScaleId: 'macd',
+				base: 0,
+			});
+			chart.priceScale('macd').applyOptions({
+				scaleMargins: { top: 0.45, bottom: 0.25 },
+				borderColor: 'rgba(255,255,255,0.12)',
+				visible: true,
+			});
+			let bbUpperSeries = chart.addLineSeries({
+				color: '#22c55e',
+				lineWidth: 1.5,
+				priceLineVisible: false,
+			});
+			let bbLowerSeries = chart.addLineSeries({
+				color: '#ef4444',
+				lineWidth: 1.5,
+				priceLineVisible: false,
+			});
+			let bbBasisSeries = chart.addLineSeries({
+				color: '#cbd5e1',
+				lineWidth: 1,
+				lineStyle: 1,
+				priceLineVisible: false,
+			});
+
+			function computeEMA(values, length) {
+				if (!values.length) return [];
+				const k = 2 / (length + 1);
+				let ema = values[0];
+				const out = [{ time: values[0].time, value: ema }];
+				for (let i = 1; i < values.length; i++) {
+					ema = values[i].value * k + ema * (1 - k);
+					out.push({ time: values[i].time, value: ema });
+				}
+				return out;
+			}
+
+			function computeSMA(values, length) {
+				if (values.length < length) return [];
+				const out = [];
+				let sum = 0;
+				for (let i = 0; i < values.length; i++) {
+					sum += values[i].value;
+					if (i >= length) {
+						sum -= values[i - length].value;
+					}
+					if (i >= length - 1) {
+						out.push({ time: values[i].time, value: sum / length });
+					}
+				}
+				return out;
+			}
+
+			function computeBB(values, length, mult) {
+				if (values.length < length) return { upper: [], lower: [], basis: [] };
+				const basis = computeSMA(values, length);
+				const upper = [];
+				const lower = [];
+				for (let i = length - 1; i < values.length; i++) {
+					const window = values.slice(i - length + 1, i + 1);
+					const mean = basis[i - length + 1].value;
+					const variance =
+						window.reduce((acc, v) => acc + Math.pow(v.value - mean, 2), 0) / length;
+					const std = Math.sqrt(variance);
+					upper.push({ time: values[i].time, value: mean + mult * std });
+					lower.push({ time: values[i].time, value: mean - mult * std });
+				}
+				return { upper, lower, basis };
+			}
+
+			function extractEMA(pineText) {
+				// Very small illustrative parser: find "ema(" and read number literal
+				const lower = pineText.toLowerCase();
+				const match = lower.match(/ema\\s*\\(.*?,\\s*(\\d+)\\s*\\)/);
+				if (!match) return null;
+				const parsed = Number.parseInt(match[1], 10);
+				return Number.isFinite(parsed) ? parsed : null;
+			}
+
+			function extractSMA(pineText) {
+				const lower = pineText.toLowerCase();
+				const match = lower.match(/sma\\s*\\(.*?,\\s*(\\d+)\\s*\\)/);
+				if (!match) return null;
+				const parsed = Number.parseInt(match[1], 10);
+				return Number.isFinite(parsed) ? parsed : null;
+			}
+
+			function extractRSI(pineText) {
+				const lower = pineText.toLowerCase();
+				const match = lower.match(/rsi\\s*\\(.*?,\\s*(\\d+)\\s*\\)/);
+				if (!match) return null;
+				const parsed = Number.parseInt(match[1], 10);
+				return Number.isFinite(parsed) ? parsed : null;
+			}
+
+			function extractMACD(pineText) {
+				const lower = pineText.toLowerCase();
+				const match = lower.match(/macd\\s*\\(.*?,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)/);
+				if (!match) return null;
+				const fast = Number.parseInt(match[1], 10);
+				const slow = Number.parseInt(match[2], 10);
+				const signal = Number.parseInt(match[3], 10);
+				if ([fast, slow, signal].some(v => !Number.isFinite(v) || v <= 0)) return null;
+				return { fast, slow, signal };
+			}
+
+			function extractBB(pineText) {
+				const lower = pineText.toLowerCase();
+				const match =
+					lower.match(/bb(?:ands)?\\s*\\(.*?,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\)/) ??
+					lower.match(/bollinger\\s*\\(.*?,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\)/);
+				if (!match) return null;
+				const len = Number.parseInt(match[1], 10);
+				const mult = Number.parseFloat(match[2]);
+				if (!Number.isFinite(len) || len <= 1 || !Number.isFinite(mult)) return null;
+				return { length: len, mult };
+			}
+
+			function computeRSI(values, length) {
+				if (values.length < length + 1) return [];
+				const out = [];
+				let gains = 0;
+				let losses = 0;
+				for (let i = 1; i <= length; i++) {
+					const change = values[i].value - values[i - 1].value;
+					if (change >= 0) gains += change;
+					else losses -= change;
+				}
+				let avgGain = gains / length;
+				let avgLoss = losses / length;
+				let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+				let rsi = 100 - 100 / (1 + rs);
+				out.push({ time: values[length].time, value: rsi });
+				for (let i = length + 1; i < values.length; i++) {
+					const change = values[i].value - values[i - 1].value;
+					const gain = Math.max(change, 0);
+					const loss = Math.max(-change, 0);
+					avgGain = (avgGain * (length - 1) + gain) / length;
+					avgLoss = (avgLoss * (length - 1) + loss) / length;
+					rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+					rsi = 100 - 100 / (1 + rs);
+					out.push({ time: values[i].time, value: rsi });
+				}
+				return out;
+			}
+
+			function computeMACD(values, params) {
+				const { fast, slow, signal } = params;
+				if (values.length < slow + signal) return { macd: [], signal: [], hist: [] };
+				const emaFast = computeEMA(values, fast);
+				const emaSlow = computeEMA(values, slow);
+				const macdLine = [];
+				for (let i = 0; i < values.length; i++) {
+					if (emaFast[i] && emaSlow[i]) {
+						macdLine.push({
+							time: values[i].time,
+							value: emaFast[i].value - emaSlow[i].value,
+						});
+					}
+				}
+				const macdSignal = computeEMA(macdLine, signal);
+				const hist = macdSignal.map((s, idx) => ({
+					time: s.time,
+					value: macdLine[idx + (macdLine.length - macdSignal.length)]?.value - s.value || 0,
+					color: (macdLine[idx + (macdLine.length - macdSignal.length)]?.value - s.value || 0) >= 0 ? '#22c55e' : '#ef4444',
+				}));
+				return { macd: macdLine.slice(-hist.length), signal: macdSignal, hist };
+			}
+
+			function applyPine() {
+				const pine = pineTextarea.value || '';
+				const emaLen = extractEMA(pine);
+				const rsiLen = extractRSI(pine);
+				const macdParams = extractMACD(pine);
+				const smaLen = extractSMA(pine);
+				const bbParams = extractBB(pine);
+				const fallback = Number.parseInt(lengthSelect.value, 10);
+				const lineData = convertToLineData(candleData);
+
+				// Candles visibility
+				candleSeries.applyOptions({ visible: toggleCandles.checked });
+
+				// EMA
+				if (toggleEMA.checked) {
+					const len = emaLen ?? fallback;
+					if (Number.isFinite(len) && len > 1) {
+						const emaData = computeEMA(lineData, len);
+						emaSeries.applyOptions({ visible: true });
+						emaSeries.setData(emaData);
+					} else {
+						emaSeries.applyOptions({ visible: false });
+					}
+				} else {
+					emaSeries.applyOptions({ visible: false });
+				}
+
+				// SMA
+				if (toggleSMA.checked) {
+					const len = smaLen ?? fallback;
+					if (Number.isFinite(len) && len > 1) {
+						const smaData = computeSMA(lineData, len);
+						smaSeries.applyOptions({ visible: true });
+						smaSeries.setData(smaData);
+					} else {
+						smaSeries.applyOptions({ visible: false });
+					}
+				} else {
+					smaSeries.applyOptions({ visible: false });
+				}
+
+				// BB
+				if (toggleBB.checked) {
+					const len = bbParams?.length ?? fallback;
+					const mult = bbParams?.mult ?? 2;
+					if (Number.isFinite(len) && len > 1 && Number.isFinite(mult)) {
+						const { upper, lower, basis } = computeBB(lineData, len, mult);
+						bbUpperSeries.applyOptions({ visible: true });
+						bbLowerSeries.applyOptions({ visible: true });
+						bbBasisSeries.applyOptions({ visible: true });
+						bbUpperSeries.setData(upper);
+						bbLowerSeries.setData(lower);
+						bbBasisSeries.setData(basis);
+					} else {
+						bbUpperSeries.applyOptions({ visible: false });
+						bbLowerSeries.applyOptions({ visible: false });
+						bbBasisSeries.applyOptions({ visible: false });
+					}
+				} else {
+					bbUpperSeries.applyOptions({ visible: false });
+					bbLowerSeries.applyOptions({ visible: false });
+					bbBasisSeries.applyOptions({ visible: false });
+				}
+
+				// RSI
+				if (toggleRSI.checked) {
+					const len = rsiLen ?? fallback;
+					if (Number.isFinite(len) && len > 1) {
+						const rsiData = computeRSI(lineData, len);
+						rsiSeries.applyOptions({ visible: true });
+						rsiSeries.setData(rsiData);
+					} else {
+						rsiSeries.applyOptions({ visible: false });
+					}
+				} else {
+					rsiSeries.applyOptions({ visible: false });
+				}
+
+				// MACD
+				if (toggleMACD.checked && macdParams) {
+					const { macd, signal, hist } = computeMACD(lineData, macdParams);
+					macdLineSeries.applyOptions({ visible: true });
+					macdSignalSeries.applyOptions({ visible: true });
+					macdHistSeries.applyOptions({ visible: true });
+					macdLineSeries.setData(macd);
+					macdSignalSeries.setData(signal);
+					macdHistSeries.setData(hist);
+				} else {
+					macdLineSeries.applyOptions({ visible: false });
+					macdSignalSeries.applyOptions({ visible: false });
+					macdHistSeries.applyOptions({ visible: false });
+				}
+
+				const parts = [];
+				if (toggleEMA.checked && (emaLen ?? fallback)) parts.push(`EMA(${emaLen ?? fallback})`);
+				if (toggleSMA.checked && (smaLen ?? fallback)) parts.push(`SMA(${smaLen ?? fallback})`);
+				if (toggleBB.checked) parts.push(`BB(${bbParams?.length ?? fallback}, mult=${bbParams?.mult ?? 2})`);
+				if (toggleRSI.checked && (rsiLen ?? fallback)) parts.push(`RSI(${rsiLen ?? fallback})`);
+				if (toggleMACD.checked && macdParams) parts.push(`MACD(${macdParams.fast},${macdParams.slow},${macdParams.signal})`);
+				setStatus(parts.length ? `Loaded: ${parts.join(' · ')}` : 'No indicators enabled.');
+			}
+
+			runButton.addEventListener('click', applyPine);
+			loadUrlBtn.addEventListener('click', async () => {
+				const url = urlInput.value.trim();
+				if (!url) return;
+				setStatus('Fetching Pine from URL...');
+				try {
+					const res = await fetch(url);
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					const text = await res.text();
+					pineTextarea.value = text;
+					setStatus('Loaded Pine from URL. Parsing...');
+					applyPine();
+				} catch (err) {
+					setStatus(`Failed to load URL: ${err.message}`);
+				}
+			});
+
+			fileInput.addEventListener('change', async event => {
+				const file = event.target.files?.[0];
+				if (!file) return;
+				setStatus(`Reading file: ${file.name}...`);
+				const text = await file.text();
+				pineTextarea.value = text;
+				setStatus('Loaded Pine from file. Parsing...');
+				applyPine();
+			});
+
+			pineTextarea.value = `//@version=5
+indicator("Demo EMA + RSI + MACD", overlay=true)
+emaLine = ta.ema(close, 50)
+rsiLine = ta.rsi(close, 14)
+[macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+plot(emaLine, color=color.aqua, linewidth=2)
+plot(rsiLine, color=color.orange, linewidth=2)
+plot(macdLine, color=color.purple, linewidth=2)
+plot(macdSignal, color=color.new(color.teal, 0), linewidth=1)
+plot(macdHist, color=macdHist >= 0 ? color.green : color.red, style=plot.style_columns)`;
+			applyPine();
+		</script>
+	</body>
+</html>

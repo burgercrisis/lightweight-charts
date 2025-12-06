@@ -17,6 +17,14 @@ paths.forEach(p => {
 
 export default defineConfig({
 	base: './',
+	server: {
+		port: 3003,
+	},
+	resolve: {
+		alias: {
+			'lightweight-charts': resolve(__dirname, '../../dist/lightweight-charts.development.mjs'),
+		},
+	},
 	build: {
 		rollupOptions: {
 			input,
