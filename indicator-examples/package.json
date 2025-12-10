@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "dts-bundle-generator": "^9.5.1",
+        "echarts": "^6.0.0",
         "fancy-canvas": "^2.1.0",
         "globby": "^14.1.0",
         "lightweight-charts": "file:.."

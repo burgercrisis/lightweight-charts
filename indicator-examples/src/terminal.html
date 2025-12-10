@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Lightweight Charts - Terminal Demo</title>
+		<link href="./style.css" rel="stylesheet" />
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+				background: #020617;
+				color: #e5e7eb;
+				font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			}
+
+			.terminal-root {
+				height: 100vh;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.terminal-topbar {
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 8px 16px;
+				background: #020617;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+				gap: 16px;
+			}
+
+			.top-left {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 13px;
+				color: #e5e7eb;
+			}
+
+			.symbol-pill {
+				padding: 2px 8px;
+				border-radius: 999px;
+				background: rgba(15, 23, 42, 0.9);
+				border: 1px solid rgba(148, 163, 184, 0.45);
+				font-weight: 600;
+			}
+
+			.top-timeframes {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+			}
+
+			.tf-btn {
+				border: none;
+				background: transparent;
+				color: #9ca3af;
+				font-size: 12px;
+				padding: 4px 8px;
+				border-radius: 999px;
+				cursor: pointer;
+			}
+
+			.tf-btn:hover {
+				background: rgba(31, 41, 55, 0.8);
+				color: #e5e7eb;
+			}
+
+			.tf-btn.active {
+				background: #f97316;
+				color: #020617;
+				font-weight: 600;
+			}
+
+			.top-right {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 12px;
+				color: #9ca3af;
+			}
+
+			.chip {
+				padding: 4px 10px;
+				border-radius: 999px;
+				background: rgba(15, 23, 42, 0.9);
+				border: 1px solid rgba(55, 65, 81, 0.9);
+			}
+
+			.chip.active {
+				background: #f97316;
+				color: #020617;
+				font-weight: 600;
+			}
+
+			.indicator-menu {
+				position: absolute;
+				top: 42px;
+				right: 16px;
+				width: 220px;
+				background: rgba(15, 23, 42, 0.98);
+				border-radius: 12px;
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+				padding: 10px 12px;
+				font-size: 12px;
+				z-index: 40;
+				display: none;
+			}
+
+			.indicator-section {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				color: #64748b;
+				margin-bottom: 4px;
+			}
+
+			.indicator-menu label {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 4px;
+				color: #e5e7eb;
+			}
+
+			.indicator-group {
+				margin-bottom: 4px;
+			}
+
+			.indicator-section-toggle {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				cursor: pointer;
+				margin-bottom: 4px;
+			}
+
+			.indicator-section-caret {
+				font-size: 10px;
+				color: #9ca3af;
+			}
+
+			.indicator-section-body {
+				margin-bottom: 2px;
+			}
+
+			.indicator-section-body-collapsed {
+				display: none;
+			}
+
+			.terminal-layout {
+				flex: 1;
+				display: grid;
+				grid-template-columns: 48px minmax(0, 1fr);
+				background: #020617;
+			}
+
+			.terminal-toolbar {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				padding: 8px 4px;
+				gap: 8px;
+				border-right: 1px solid rgba(30, 64, 175, 0.6);
+				background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.2), transparent 55%),
+					#020617;
+			}
+
+			.tool-btn {
+				width: 32px;
+				height: 32px;
+				border-radius: 8px;
+				border: 1px solid rgba(51, 65, 85, 0.8);
+				background: rgba(15, 23, 42, 0.95);
+				color: #9ca3af;
+				font-size: 14px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.tool-btn:hover {
+				background: rgba(30, 64, 175, 0.9);
+				color: #e5e7eb;
+			}
+
+			.terminal-main {
+				position: relative;
+				background: #020617;
+			}
+
+			.terminal-chart {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+			}
+
+			.terminal-bottombar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				padding: 6px 16px;
+				border-top: 1px solid rgba(30, 64, 175, 0.6);
+				background: radial-gradient(circle at bottom, rgba(15, 23, 42, 0.9), #020617 55%);
+				font-size: 12px;
+			}
+			
+			.indicator-settings-panel {
+				position: fixed;
+				top: 72px;
+				right: 24px;
+				width: 260px;
+				max-height: 70vh;
+				background: rgba(15, 23, 42, 0.98);
+				border-radius: 12px;
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+				padding: 10px 12px;
+				font-size: 12px;
+				z-index: 45;
+				display: none;
+				overflow-y: auto;
+			}
+
+			.indicator-popup {
+				position: fixed;
+				min-width: 200px;
+				max-width: 260px;
+				background: rgba(15, 23, 42, 0.98);
+				border-radius: 10px;
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
+				padding: 8px 10px;
+				font-size: 11px;
+				z-index: 60;
+				display: none;
+			}
+
+			.indicator-popup-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 4px;
+			}
+
+			.indicator-popup-title {
+				font-size: 11px;
+				font-weight: 600;
+				color: #e5e7eb;
+			}
+
+			.indicator-popup-body {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+
+			.indicator-popup label {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 2px;
+				color: #e5e7eb;
+				gap: 6px;
+			}
+
+			.indicator-popup input[type='number'] {
+				width: 70px;
+				border-radius: 6px;
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				background: rgba(15, 23, 42, 0.9);
+				color: #e5e7eb;
+				font-size: 11px;
+				padding: 2px 4px;
+			}
+
+			.indicator-settings-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 6px;
+			}
+
+			.indicator-settings-title {
+				font-size: 12px;
+				font-weight: 600;
+				color: #e5e7eb;
+			}
+
+			.indicator-settings-close {
+				border: none;
+				background: transparent;
+				color: #9ca3af;
+				font-size: 14px;
+				cursor: pointer;
+				border-radius: 999px;
+				width: 22px;
+				height: 22px;
+			}
+
+			.indicator-settings-body {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+
+			.settings-section-title {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				color: #64748b;
+				margin-bottom: 4px;
+			}
+
+			.indicator-settings-panel label {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 4px;
+				color: #e5e7eb;
+				gap: 6px;
+			}
+
+			.indicator-settings-panel input[type='number'] {
+				width: 72px;
+				border-radius: 6px;
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				background: rgba(15, 23, 42, 0.9);
+				color: #e5e7eb;
+				font-size: 11px;
+				padding: 2px 4px;
+			}
+
+			.range-label {
+				color: #9ca3af;
+				margin-right: 4px;
+			}
+
+			.range-buttons {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+			}
+
+			.range-btn {
+				border: none;
+				background: transparent;
+				color: #9ca3af;
+				font-size: 11px;
+				padding: 3px 8px;
+				border-radius: 999px;
+				cursor: pointer;
+			}
+
+			.range-btn:hover {
+				background: rgba(31, 41, 55, 0.9);
+				color: #e5e7eb;
+			}
+
+			.range-btn.active {
+				background: rgba(248, 250, 252, 0.95);
+				color: #020617;
+				font-weight: 600;
+			}
+
+			.bottom-right {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.bottom-clock {
+				color: #9ca3af;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.bottom-chip {
+				border: none;
+				background: transparent;
+				color: #9ca3af;
+				font-size: 11px;
+				padding: 3px 8px;
+				border-radius: 999px;
+				cursor: pointer;
+			}
+
+			.bottom-chip.active {
+				background: #f97316;
+				color: #020617;
+				font-weight: 600;
+			}
+
+			@media (max-width: 960px) {
+				.terminal-layout {
+					grid-template-columns: minmax(0, 1fr);
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="terminal-root">
+			<header class="terminal-topbar">
+				<div class="top-left">
+					<div class="symbol-pill">GMGN / USD</div>
+					<span>Demo feed · 1H</span>
+				</div>
+				<div class="top-timeframes">
+					<button class="tf-btn active" data-tf="5m">5m</button>
+					<button class="tf-btn" data-tf="15m">15m</button>
+					<button class="tf-btn" data-tf="1h">1H</button>
+					<button class="tf-btn" data-tf="4h">4H</button>
+					<button class="tf-btn" data-tf="1d">1D</button>
+				</div>
+				<div class="top-right">
+					<button id="indicator-toggle" class="chip" type="button">Display ▾</button>
+					<div class="chip">Price / MC ▾</div>
+					<div style="display: flex; gap: 4px;">
+						<button class="chip chart-mode-btn active" type="button" data-mode="candles">Candles</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="ohlc">OHLC</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="line">Line</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="area">Area</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="heikin">Heikin-Ashi</button>
+					</div>
+					<div>UTC-8</div>
+					<div id="indicator-menu" class="indicator-menu">
+						<div class="indicator-menu-actions">
+							<button id="indicator-open-all" type="button">Open all</button>
+							<button id="indicator-close-all" type="button">Close all</button>
+						</div>
+						<div class="indicator-group">
+							<div class="indicator-section-toggle">
+								<div class="indicator-section">Overlays</div>
+								<span class="indicator-section-caret">▸</span>
+							</div>
+							<div class="indicator-section-body indicator-section-body-collapsed">
+								<label>
+									<span>Candles</span>
+									<input id="toggle-candles" type="checkbox" checked />
+								</label>
+								<label>
+									<span>Price Line</span>
+									<input id="toggle-price-line" type="checkbox" />
+								</label>
+								<label>
+									<span>Price Area</span>
+									<input id="toggle-price-area" type="checkbox" />
+								</label>
+								<label>
+									<span>EMA (50)</span>
+									<input id="toggle-ema" type="checkbox" checked />
+								</label>
+								<label>
+									<span>EMA (20)</span>
+									<input id="toggle-ema20" type="checkbox" />
+								</label>
+								<label>
+									<span>EMA (100)</span>
+									<input id="toggle-ema100" type="checkbox" />
+								</label>
+								<label>
+									<span>SMA (20)</span>
+									<input id="toggle-sma" type="checkbox" />
+								</label>
+								<label>
+									<span>Bollinger Bands</span>
+									<input id="toggle-bb" type="checkbox" />
+								</label>
+								<label>
+									<span>Keltner Channel</span>
+									<input id="toggle-keltner" type="checkbox" />
+								</label>
+								<label>
+									<span>Ichimoku (9, 26, 52)</span>
+									<input id="toggle-ichimoku" type="checkbox" />
+								</label>
+								<label>
+									<span>VWAP</span>
+									<input id="toggle-vwap" type="checkbox" />
+								</label>
+								<label>
+									<span>Donchian Channel</span>
+									<input id="toggle-donchian" type="checkbox" />
+								</label>
+								<label>
+									<span>Parabolic SAR</span>
+									<input id="toggle-psar" type="checkbox" />
+								</label>
+							</div>
+						</div>
+						<div class="indicator-group" style="margin-top: 6px;">
+							<div class="indicator-section-toggle">
+								<div class="indicator-section">Volume</div>
+								<span class="indicator-section-caret">▸</span>
+							</div>
+							<div class="indicator-section-body indicator-section-body-collapsed">
+								<label>
+									<span>Volume</span>
+									<input id="toggle-volume" type="checkbox" checked />
+								</label>
+								<label>
+									<span>OBV</span>
+									<input id="toggle-obv" type="checkbox" />
+								</label>
+							</div>
+						</div>
+						<div class="indicator-group" style="margin-top: 6px;">
+							<div class="indicator-section-toggle">
+								<div class="indicator-section">Oscillators</div>
+								<span class="indicator-section-caret">▸</span>
+							</div>
+							<div class="indicator-section-body indicator-section-body-collapsed">
+								<label>
+									<span>RSI (14)</span>
+									<input id="toggle-rsi" type="checkbox" />
+								</label>
+								<label>
+									<span>Stochastic (14, 3)</span>
+									<input id="toggle-stoch" type="checkbox" />
+								</label>
+								<label>
+									<span>KDJ J</span>
+									<input id="toggle-kdj" type="checkbox" />
+								</label>
+								<label>
+									<span>CCI (20)</span>
+									<input id="toggle-cci" type="checkbox" />
+								</label>
+								<label>
+									<span>BIAS (20)</span>
+									<input id="toggle-bias" type="checkbox" />
+								</label>
+								<label>
+									<span>ADX (14)</span>
+									<input id="toggle-adx" type="checkbox" />
+								</label>
+								<label>
+									<span>ATR % (14)</span>
+									<input id="toggle-atr" type="checkbox" />
+								</label>
+								<label>
+									<span>Momentum (10)</span>
+									<input id="toggle-mom" type="checkbox" />
+								</label>
+								<label>
+									<span>ROC (10)</span>
+									<input id="toggle-roc" type="checkbox" />
+								</label>
+								<label>
+									<span>Williams %R (14)</span>
+									<input id="toggle-wpr" type="checkbox" />
+								</label>
+							</div>
+						</div>
+						<div class="indicator-group" style="margin-top: 6px;">
+							<div class="indicator-section-toggle">
+								<div class="indicator-section">MACD</div>
+								<span class="indicator-section-caret">▸</span>
+							</div>
+							<div class="indicator-section-body indicator-section-body-collapsed">
+								<label>
+									<span>MACD (12, 26, 9)</span>
+									<input id="toggle-macd" type="checkbox" />
+								</label>
+							</div>
+						</div>
+					</div>
+				</div>
+			</header>
+			<div class="terminal-layout">
+				<aside class="terminal-toolbar">
+					<button class="tool-btn" title="Crosshair">+</button>
+					<button class="tool-btn" title="Trendline">/</button>
+					<button class="tool-btn" title="Brush">✎</button>
+					<button class="tool-btn" title="Fib">𝜑</button>
+					<button class="tool-btn" title="Text">T</button>
+					<button id="settings-toggle" class="tool-btn" title="Settings">⚙</button>
+				</aside>
+				<main class="terminal-main">
+					<div id="chart" class="terminal-chart"></div>
+				</main>
+			</div>
+			<footer class="terminal-bottombar">
+				<div style="display: flex; align-items: center; gap: 8px;">
+					<div class="range-label">Range</div>
+					<div class="range-buttons">
+						<button class="range-btn active" data-range="all">All</button>
+						<button class="range-btn" data-range="1d">1d</button>
+						<button class="range-btn" data-range="7d">7d</button>
+						<button class="range-btn" data-range="30d">30d</button>
+						<button class="range-btn" data-range="180d">180d</button>
+					</div>
+				</div>
+				<div class="bottom-right">
+					<span id="bottom-clock" class="bottom-clock">--:--:--</span>
+					<span class="bottom-separator">UTC-8</span>
+					<button id="log-toggle" class="bottom-chip" type="button">log</button>
+					<button class="bottom-chip" type="button">auto</button>
+				</div>
+			</footer>
+		</div>
+		<div id="indicator-settings" class="indicator-settings-panel">
+			<div class="indicator-settings-header">
+				<div class="indicator-settings-title">Indicator settings</div>
+				<button
+					id="indicator-settings-close"
+					class="indicator-settings-close"
+					type="button"
+				>
+					×
+				</button>
+			</div>
+			<div class="indicator-settings-body">
+				<div class="settings-section">
+					<div class="settings-section-title">Moving averages</div>
+					<label>
+						<span>EMA 50 length</span>
+						<input id="setting-ema-length" type="number" min="1" value="50" />
+					</label>
+					<label>
+						<span>EMA 20 length</span>
+						<input id="setting-ema-fast-length" type="number" min="1" value="20" />
+					</label>
+					<label>
+						<span>EMA 100 length</span>
+						<input id="setting-ema-slow-length" type="number" min="1" value="100" />
+					</label>
+					<label>
+						<span>SMA length</span>
+						<input id="setting-sma-length" type="number" min="1" value="20" />
+					</label>
+				</div>
+				<div class="settings-section">
+					<div class="settings-section-title">Bands &amp; channels</div>
+					<label>
+						<span>Bollinger length</span>
+						<input id="setting-bb-length" type="number" min="1" value="20" />
+					</label>
+					<label>
+						<span>Bollinger mult</span>
+						<input
+							id="setting-bb-mult"
+							type="number"
+							step="0.1"
+							min="0"
+							value="2"
+						/>
+					</label>
+					<label>
+						<span>Donchian length</span>
+						<input id="setting-donchian-length" type="number" min="1" value="20" />
+					</label>
+					<label>
+						<span>Keltner EMA length</span>
+						<input
+							id="setting-keltner-ma-length"
+							type="number"
+							min="1"
+							value="20"
+						/>
+					</label>
+					<label>
+						<span>Keltner ATR length</span>
+						<input
+							id="setting-keltner-atr-length"
+							type="number"
+							min="1"
+							value="20"
+						/>
+					</label>
+					<label>
+						<span>Keltner mult</span>
+						<input
+							id="setting-keltner-mult"
+							type="number"
+							step="0.1"
+							min="0"
+							value="1.5"
+						/>
+					</label>
+					<label>
+						<span>Ichimoku conv</span>
+						<input id="setting-ich-conv" type="number" min="1" value="9" />
+					</label>
+					<label>
+						<span>Ichimoku base</span>
+						<input id="setting-ich-base" type="number" min="1" value="26" />
+					</label>
+					<label>
+						<span>Ichimoku span B</span>
+						<input id="setting-ich-spanb" type="number" min="1" value="52" />
+					</label>
+					<label>
+						<span>Ichimoku displacement</span>
+						<input
+							id="setting-ich-displacement"
+							type="number"
+							min="1"
+							value="26"
+						/>
+					</label>
+					<label>
+						<span>PSAR step</span>
+						<input
+							id="setting-psar-step"
+							type="number"
+							step="0.001"
+							min="0"
+							value="0.02"
+						/>
+					</label>
+					<label>
+						<span>PSAR max step</span>
+						<input
+							id="setting-psar-maxstep"
+							type="number"
+							step="0.001"
+							min="0"
+							value="0.2"
+						/>
+					</label>
+				</div>
+				<div class="settings-section">
+					<div class="settings-section-title">Oscillators</div>
+					<label>
+						<span>RSI length</span>
+						<input id="setting-rsi-length" type="number" min="1" value="14" />
+					</label>
+					<label>
+						<span>Stoch length</span>
+						<input id="setting-stoch-length" type="number" min="1" value="14" />
+					</label>
+					<label>
+						<span>Stoch smoothing</span>
+						<input id="setting-stoch-smoothing" type="number" min="1" value="3" />
+					</label>
+					<label>
+						<span>CCI length</span>
+						<input id="setting-cci-length" type="number" min="1" value="20" />
+					</label>
+					<label>
+						<span>BIAS length</span>
+						<input id="setting-bias-length" type="number" min="1" value="20" />
+					</label>
+					<label>
+						<span>Williams %R length</span>
+						<input id="setting-wpr-length" type="number" min="1" value="14" />
+					</label>
+					<label>
+						<span>Momentum length</span>
+						<input id="setting-mom-length" type="number" min="1" value="10" />
+					</label>
+					<label>
+						<span>ROC length</span>
+						<input id="setting-roc-length" type="number" min="1" value="10" />
+					</label>
+					<label>
+						<span>ATR length</span>
+						<input id="setting-atr-length" type="number" min="1" value="14" />
+					</label>
+					<label>
+						<span>ADX length</span>
+						<input id="setting-adx-length" type="number" min="1" value="14" />
+					</label>
+				</div>
+				<div class="settings-section">
+					<div class="settings-section-title">MACD</div>
+					<label>
+						<span>Fast length</span>
+						<input id="setting-macd-fast" type="number" min="1" value="12" />
+					</label>
+					<label>
+						<span>Slow length</span>
+						<input id="setting-macd-slow" type="number" min="1" value="26" />
+					</label>
+					<label>
+						<span>Signal length</span>
+						<input id="setting-macd-signal" type="number" min="1" value="9" />
+					</label>
+				</div>
+			</div>
+		</div>
+		<div id="indicator-popup" class="indicator-popup">
+			<div class="indicator-popup-header">
+				<div id="indicator-popup-title" class="indicator-popup-title"></div>
+				<button
+					id="indicator-popup-close"
+					class="indicator-settings-close"
+					type="button"
+				>
+					×
+				</button>
+			</div>
+			<div id="indicator-popup-body" class="indicator-popup-body"></div>
+		</div>
+
+		<script type="module">
+			import './terminal-echarts.js';
+		</script>
+	</body>
+</html>
