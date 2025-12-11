@@ -19,6 +19,7 @@ export default defineConfig({
 	base: './',
 	server: {
 		port: 3003,
+		open: true,
 	},
 	resolve: {
 		alias: {

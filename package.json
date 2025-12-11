@@ -114,8 +114,8 @@
     "yargs": "17.7.2"
   },
   "scripts": {
-    "postinstall": "npm run install-hooks",
-    "install-hooks": "node scripts/githooks/install.js",
+    "postinstall": "node -e \"if (process.cwd().includes('node_modules')) { process.exit(0); } require('child_process').spawnSync('node', ['archive/scripts/githooks/install.js'], { stdio: 'inherit' });\"",
+    "install-hooks": "node archive/scripts/githooks/install.js",
     "clean": "rimraf lib/ dist/",
     "bundle-dts": "dts-bundle-generator --config dts-config.json",
     "tsc": "tspc -p tsconfig.prod.json",

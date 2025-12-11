@@ -16,6 +16,7 @@
 
 			.terminal-root {
 				height: 100vh;
+				min-height: 0;
 				display: flex;
 				flex-direction: column;
 			}
@@ -153,8 +154,10 @@
 
 			.terminal-layout {
 				flex: 1;
+				min-height: 0;
 				display: grid;
 				grid-template-columns: 48px minmax(0, 1fr);
+				grid-template-rows: 1fr;
 				background: #020617;
 			}
 
@@ -167,6 +170,7 @@
 				border-right: 1px solid rgba(30, 64, 175, 0.6);
 				background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.2), transparent 55%),
 					#020617;
+				height: 100%;
 			}
 
 			.tool-btn {
@@ -190,6 +194,8 @@
 
 			.terminal-main {
 				position: relative;
+				min-height: 0;
+				height: 100%;
 				background: #020617;
 			}
 
@@ -311,6 +317,33 @@
 				gap: 8px;
 			}
 
+			.indicator-settings-tabs {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				margin-bottom: 6px;
+			}
+
+			.indicator-settings-tab {
+				border: 1px solid rgba(51, 65, 85, 0.9);
+				background: rgba(15, 23, 42, 0.95);
+				color: #9ca3af;
+				font-size: 11px;
+				padding: 3px 8px;
+				border-radius: 999px;
+				cursor: pointer;
+			}
+
+			.indicator-settings-tab.active {
+				background: #f97316;
+				color: #020617;
+				font-weight: 600;
+			}
+
+			.indicator-settings-page-3d {
+				display: none;
+			}
+
 			.settings-section-title {
 				font-size: 11px;
 				text-transform: uppercase;
@@ -368,6 +401,21 @@
 				background: rgba(248, 250, 252, 0.95);
 				color: #020617;
 				font-weight: 600;
+			}
+
+			.terminal-chart-3d-indicator {
+				position: absolute;
+				right: 16px;
+				bottom: 16px;
+				width: 320px;
+				height: 200px;
+				border-radius: 8px;
+				border: 1px solid rgba(30, 64, 175, 0.7);
+				background: rgba(15, 23, 42, 0.98);
+				box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+				display: none;
+				overflow: hidden;
+				z-index: 30;
 			}
 
 			.bottom-right {
@@ -428,6 +476,10 @@
 						<button class="chip chart-mode-btn" type="button" data-mode="line">Line</button>
 						<button class="chip chart-mode-btn" type="button" data-mode="area">Area</button>
 						<button class="chip chart-mode-btn" type="button" data-mode="heikin">Heikin-Ashi</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="range">Range</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="renko">Renko</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="kagi">Kagi</button>
+						<button class="chip chart-mode-btn" type="button" data-mode="3d">3D</button>
 					</div>
 					<div>UTC-8</div>
 					<div id="indicator-menu" class="indicator-menu">
@@ -493,6 +545,10 @@
 									<span>Parabolic SAR</span>
 									<input id="toggle-psar" type="checkbox" />
 								</label>
+								<label>
+									<span>TSD Trend</span>
+									<input id="toggle-tsd-trend" type="checkbox" />
+								</label>
 							</div>
 						</div>
 						<div class="indicator-group" style="margin-top: 6px;">
@@ -508,6 +564,10 @@
 								<label>
 									<span>OBV</span>
 									<input id="toggle-obv" type="checkbox" />
+								</label>
+								<label>
+									<span>VR (26)</span>
+									<input id="toggle-vr" type="checkbox" />
 								</label>
 							</div>
 						</div>
@@ -554,8 +614,24 @@
 									<input id="toggle-roc" type="checkbox" />
 								</label>
 								<label>
+									<span>DMA (10, 50)</span>
+									<input id="toggle-dma" type="checkbox" />
+								</label>
+								<label>
+									<span>TRIX (18, 9)</span>
+									<input id="toggle-trix" type="checkbox" />
+								</label>
+								<label>
 									<span>Williams %R (14)</span>
 									<input id="toggle-wpr" type="checkbox" />
+								</label>
+								<label>
+									<span>TSD Seasonality</span>
+									<input id="toggle-tsd-seasonality" type="checkbox" />
+								</label>
+								<label>
+									<span>TSD Residual</span>
+									<input id="toggle-tsd-residual" type="checkbox" />
 								</label>
 							</div>
 						</div>
@@ -568,6 +644,18 @@
 								<label>
 									<span>MACD (12, 26, 9)</span>
 									<input id="toggle-macd" type="checkbox" />
+								</label>
+							</div>
+						</div>
+						<div class="indicator-group" style="margin-top: 6px;">
+							<div class="indicator-section-toggle">
+								<div class="indicator-section">3D</div>
+								<span class="indicator-section-caret">▸</span>
+							</div>
+							<div class="indicator-section-body indicator-section-body-collapsed">
+								<label>
+									<span>3D inspector</span>
+									<input id="toggle-3d-indicator" type="checkbox" />
 								</label>
 							</div>
 						</div>
@@ -585,16 +673,17 @@
 				</aside>
 				<main class="terminal-main">
 					<div id="chart" class="terminal-chart"></div>
+					<div id="chart-3d-indicator" class="terminal-chart-3d-indicator"></div>
 				</main>
 			</div>
 			<footer class="terminal-bottombar">
 				<div style="display: flex; align-items: center; gap: 8px;">
 					<div class="range-label">Range</div>
 					<div class="range-buttons">
-						<button class="range-btn active" data-range="all">All</button>
+						<button class="range-btn" data-range="all">All</button>
 						<button class="range-btn" data-range="1d">1d</button>
 						<button class="range-btn" data-range="7d">7d</button>
-						<button class="range-btn" data-range="30d">30d</button>
+						<button class="range-btn active" data-range="30d">30d</button>
 						<button class="range-btn" data-range="180d">180d</button>
 					</div>
 				</div>
@@ -602,7 +691,13 @@
 					<span id="bottom-clock" class="bottom-clock">--:--:--</span>
 					<span class="bottom-separator">UTC-8</span>
 					<button id="log-toggle" class="bottom-chip" type="button">log</button>
-					<button class="bottom-chip" type="button">auto</button>
+					<select id="perf-preset" class="bottom-chip" style="background: transparent; border-radius: 999px; border: 1px solid rgba(55, 65, 81, 0.9); color: #9ca3af; font-size: 11px; padding: 2px 6px;">
+						<option value="light">Light</option>
+						<option value="normal" selected>Normal</option>
+						<option value="heavy">Heavy</option>
+					</select>
+					<button id="stream-toggle" class="bottom-chip" type="button">Pause</button>
+					<button id="go-live" class="bottom-chip" type="button">Go live</button>
 				</div>
 			</footer>
 		</div>
@@ -618,175 +713,346 @@
 				</button>
 			</div>
 			<div class="indicator-settings-body">
-				<div class="settings-section">
-					<div class="settings-section-title">Moving averages</div>
-					<label>
-						<span>EMA 50 length</span>
-						<input id="setting-ema-length" type="number" min="1" value="50" />
-					</label>
-					<label>
-						<span>EMA 20 length</span>
-						<input id="setting-ema-fast-length" type="number" min="1" value="20" />
-					</label>
-					<label>
-						<span>EMA 100 length</span>
-						<input id="setting-ema-slow-length" type="number" min="1" value="100" />
-					</label>
-					<label>
-						<span>SMA length</span>
-						<input id="setting-sma-length" type="number" min="1" value="20" />
-					</label>
+				<div class="indicator-settings-tabs">
+					<button
+						class="indicator-settings-tab active"
+						type="button"
+						data-tab="indicators"
+					>
+						Indicators
+					</button>
+					<button
+						class="indicator-settings-tab"
+						type="button"
+						data-tab="3d"
+					>
+						3D chart
+					</button>
 				</div>
-				<div class="settings-section">
-					<div class="settings-section-title">Bands &amp; channels</div>
-					<label>
-						<span>Bollinger length</span>
-						<input id="setting-bb-length" type="number" min="1" value="20" />
-					</label>
-					<label>
-						<span>Bollinger mult</span>
-						<input
-							id="setting-bb-mult"
-							type="number"
-							step="0.1"
-							min="0"
-							value="2"
-						/>
-					</label>
-					<label>
-						<span>Donchian length</span>
-						<input id="setting-donchian-length" type="number" min="1" value="20" />
-					</label>
-					<label>
-						<span>Keltner EMA length</span>
-						<input
-							id="setting-keltner-ma-length"
-							type="number"
-							min="1"
-							value="20"
-						/>
-					</label>
-					<label>
-						<span>Keltner ATR length</span>
-						<input
-							id="setting-keltner-atr-length"
-							type="number"
-							min="1"
-							value="20"
-						/>
-					</label>
-					<label>
-						<span>Keltner mult</span>
-						<input
-							id="setting-keltner-mult"
-							type="number"
-							step="0.1"
-							min="0"
-							value="1.5"
-						/>
-					</label>
-					<label>
-						<span>Ichimoku conv</span>
-						<input id="setting-ich-conv" type="number" min="1" value="9" />
-					</label>
-					<label>
-						<span>Ichimoku base</span>
-						<input id="setting-ich-base" type="number" min="1" value="26" />
-					</label>
-					<label>
-						<span>Ichimoku span B</span>
-						<input id="setting-ich-spanb" type="number" min="1" value="52" />
-					</label>
-					<label>
-						<span>Ichimoku displacement</span>
-						<input
-							id="setting-ich-displacement"
-							type="number"
-							min="1"
-							value="26"
-						/>
-					</label>
-					<label>
-						<span>PSAR step</span>
-						<input
-							id="setting-psar-step"
-							type="number"
-							step="0.001"
-							min="0"
-							value="0.02"
-						/>
-					</label>
-					<label>
-						<span>PSAR max step</span>
-						<input
-							id="setting-psar-maxstep"
-							type="number"
-							step="0.001"
-							min="0"
-							value="0.2"
-						/>
-					</label>
+				<div id="indicator-settings-page-main">
+					<div class="settings-section">
+						<div class="settings-section-title">Moving averages</div>
+						<label>
+							<span>EMA 50 length</span>
+							<input id="setting-ema-length" type="number" min="1" value="50" />
+						</label>
+						<label>
+							<span>EMA 20 length</span>
+							<input id="setting-ema-fast-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>EMA 100 length</span>
+							<input id="setting-ema-slow-length" type="number" min="1" value="100" />
+						</label>
+						<label>
+							<span>SMA length</span>
+							<input id="setting-sma-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>DMA fast length</span>
+							<input id="setting-dma-fast-length" type="number" min="1" value="10" />
+						</label>
+						<label>
+							<span>DMA slow length</span>
+							<input id="setting-dma-slow-length" type="number" min="1" value="50" />
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">Bands &amp; channels</div>
+						<label>
+							<span>Bollinger length</span>
+							<input id="setting-bb-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>Bollinger mult</span>
+							<input
+								id="setting-bb-mult"
+								type="number"
+								step="0.1"
+								min="0"
+								value="2"
+							/>
+						</label>
+						<label>
+							<span>Donchian length</span>
+							<input id="setting-donchian-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>Keltner EMA length</span>
+							<input
+								id="setting-keltner-ma-length"
+								type="number"
+								min="1"
+								value="20"
+							/>
+						</label>
+						<label>
+							<span>Keltner ATR length</span>
+							<input
+								id="setting-keltner-atr-length"
+								type="number"
+								min="1"
+								value="20"
+							/>
+						</label>
+						<label>
+							<span>Keltner mult</span>
+							<input
+								id="setting-keltner-mult"
+								type="number"
+								step="0.1"
+								min="0"
+								value="1.5"
+							/>
+						</label>
+						<label>
+							<span>Ichimoku conv</span>
+							<input id="setting-ich-conv" type="number" min="1" value="9" />
+						</label>
+						<label>
+							<span>Ichimoku base</span>
+							<input id="setting-ich-base" type="number" min="1" value="26" />
+						</label>
+						<label>
+							<span>Ichimoku span B</span>
+							<input id="setting-ich-spanb" type="number" min="1" value="52" />
+						</label>
+						<label>
+							<span>Ichimoku displacement</span>
+							<input
+								id="setting-ich-displacement"
+								type="number"
+								min="1"
+								value="26"
+							/>
+						</label>
+						<label>
+							<span>PSAR step</span>
+							<input
+								id="setting-psar-step"
+								type="number"
+								step="0.001"
+								min="0"
+								value="0.02"
+							/>
+						</label>
+						<label>
+							<span>PSAR max step</span>
+							<input
+								id="setting-psar-maxstep"
+								type="number"
+								step="0.001"
+								min="0"
+								value="0.2"
+							/>
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">Price modes</div>
+						<label>
+							<span>Range bar size</span>
+							<input
+								id="setting-range-size"
+								type="number"
+								step="0.1"
+								min="0"
+								value="5"
+							/>
+						</label>
+						<label>
+							<span>Renko box size</span>
+							<input
+								id="setting-renko-box-size"
+								type="number"
+								step="0.1"
+								min="0"
+								value="0"
+							/>
+						</label>
+						<label>
+							<span>Kagi reversal size</span>
+							<input
+								id="setting-kagi-reversal-size"
+								type="number"
+								step="0.1"
+								min="0"
+								value="0"
+							/>
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">Oscillators</div>
+						<label>
+							<span>RSI length</span>
+							<input id="setting-rsi-length" type="number" min="1" value="14" />
+						</label>
+						<label>
+							<span>Stoch length</span>
+							<input id="setting-stoch-length" type="number" min="1" value="14" />
+						</label>
+						<label>
+							<span>Stoch smoothing</span>
+							<input id="setting-stoch-smoothing" type="number" min="1" value="3" />
+						</label>
+						<label>
+							<span>CCI length</span>
+							<input id="setting-cci-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>BIAS length</span>
+							<input id="setting-bias-length" type="number" min="1" value="20" />
+						</label>
+						<label>
+							<span>Williams %R length</span>
+							<input id="setting-wpr-length" type="number" min="1" value="14" />
+						</label>
+						<label>
+							<span>Momentum length</span>
+							<input id="setting-mom-length" type="number" min="1" value="10" />
+						</label>
+						<label>
+							<span>ROC length</span>
+							<input id="setting-roc-length" type="number" min="1" value="10" />
+						</label>
+						<label>
+							<span>VR length</span>
+							<input id="setting-vr-length" type="number" min="1" value="26" />
+						</label>
+						<label>
+							<span>TRIX length</span>
+							<input id="setting-trix-length" type="number" min="1" value="18" />
+						</label>
+						<label>
+							<span>TRIX signal length</span>
+							<input id="setting-trix-signal" type="number" min="1" value="9" />
+						</label>
+						<label>
+							<span>ATR length</span>
+							<input id="setting-atr-length" type="number" min="1" value="14" />
+						</label>
+						<label>
+							<span>ADX length</span>
+							<input id="setting-adx-length" type="number" min="1" value="14" />
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">MACD</div>
+						<label>
+							<span>Fast length</span>
+							<input id="setting-macd-fast" type="number" min="1" value="12" />
+						</label>
+						<label>
+							<span>Slow length</span>
+							<input id="setting-macd-slow" type="number" min="1" value="26" />
+						</label>
+						<label>
+							<span>Signal length</span>
+							<input id="setting-macd-signal" type="number" min="1" value="9" />
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">Time series decomposition</div>
+						<label>
+							<span>Trend length</span>
+							<input id="setting-tsd-trend-length" type="number" min="3" value="50" />
+						</label>
+						<label>
+							<span>Season length</span>
+							<input id="setting-tsd-season-length" type="number" min="2" />
+						</label>
+						<label>
+							<span>Season smoothing</span>
+							<input
+								id="setting-tsd-season-smoothing"
+								type="number"
+								min="1"
+								value="1"
+							/>
+						</label>
+						<label>
+							<span>Residual std window</span>
+							<input
+								id="setting-tsd-residual-std-window"
+								type="number"
+								min="5"
+								value="100"
+							/>
+						</label>
+						<label>
+							<span>Normalize seasonality</span>
+							<input id="setting-tsd-normalize" type="checkbox" checked />
+						</label>
+						<label>
+							<span>Standardize residuals</span>
+							<input id="setting-tsd-standardize" type="checkbox" checked />
+						</label>
+						<label>
+							<span>Model</span>
+							<select id="setting-tsd-model">
+								<option value="additive" selected>Additive</option>
+								<option value="multiplicative">Multiplicative</option>
+							</select>
+						</label>
+					</div>
 				</div>
-				<div class="settings-section">
-					<div class="settings-section-title">Oscillators</div>
-					<label>
-						<span>RSI length</span>
-						<input id="setting-rsi-length" type="number" min="1" value="14" />
-					</label>
-					<label>
-						<span>Stoch length</span>
-						<input id="setting-stoch-length" type="number" min="1" value="14" />
-					</label>
-					<label>
-						<span>Stoch smoothing</span>
-						<input id="setting-stoch-smoothing" type="number" min="1" value="3" />
-					</label>
-					<label>
-						<span>CCI length</span>
-						<input id="setting-cci-length" type="number" min="1" value="20" />
-					</label>
-					<label>
-						<span>BIAS length</span>
-						<input id="setting-bias-length" type="number" min="1" value="20" />
-					</label>
-					<label>
-						<span>Williams %R length</span>
-						<input id="setting-wpr-length" type="number" min="1" value="14" />
-					</label>
-					<label>
-						<span>Momentum length</span>
-						<input id="setting-mom-length" type="number" min="1" value="10" />
-					</label>
-					<label>
-						<span>ROC length</span>
-						<input id="setting-roc-length" type="number" min="1" value="10" />
-					</label>
-					<label>
-						<span>ATR length</span>
-						<input id="setting-atr-length" type="number" min="1" value="14" />
-					</label>
-					<label>
-						<span>ADX length</span>
-						<input id="setting-adx-length" type="number" min="1" value="14" />
-					</label>
-				</div>
-				<div class="settings-section">
-					<div class="settings-section-title">MACD</div>
-					<label>
-						<span>Fast length</span>
-						<input id="setting-macd-fast" type="number" min="1" value="12" />
-					</label>
-					<label>
-						<span>Slow length</span>
-						<input id="setting-macd-slow" type="number" min="1" value="26" />
-					</label>
-					<label>
-						<span>Signal length</span>
-						<input id="setting-macd-signal" type="number" min="1" value="9" />
-					</label>
+				<div id="indicator-settings-page-3d" class="indicator-settings-page-3d">
+					<div class="settings-section">
+						<div class="settings-section-title">Main 3D chart</div>
+						<label>
+							<span>Z axis indicator</span>
+							<select id="setting-3d-main-z-source">
+								<option value="rsi.14">RSI 14</option>
+								<option value="ema.50">EMA 50</option>
+								<option value="macd.line">MACD line</option>
+								<option value="obv">OBV</option>
+								<option value="atr.14">ATR % 14</option>
+								<option value="adx.14">ADX 14</option>
+							</select>
+						</label>
+					</div>
+					<div class="settings-section">
+						<div class="settings-section-title">3D inspector pane</div>
+						<label>
+							<span>X axis</span>
+							<select id="setting-3d-indicator-x">
+								<option value="time">Time</option>
+								<option value="index">Index</option>
+								<option value="price.close">Price close</option>
+								<option value="price.high">Price high</option>
+								<option value="price.low">Price low</option>
+								<option value="volume">Volume</option>
+								<option value="rsi.14">RSI 14</option>
+								<option value="macd.line">MACD line</option>
+								<option value="obv">OBV</option>
+							</select>
+						</label>
+						<label>
+							<span>Y axis</span>
+							<select id="setting-3d-indicator-y">
+								<option value="price.close">Price close</option>
+								<option value="price.high">Price high</option>
+								<option value="price.low">Price low</option>
+								<option value="volume">Volume</option>
+								<option value="rsi.14">RSI 14</option>
+								<option value="macd.line">MACD line</option>
+								<option value="obv">OBV</option>
+							</select>
+						</label>
+						<label>
+							<span>Z axis</span>
+							<select id="setting-3d-indicator-z">
+								<option value="rsi.14">RSI 14</option>
+								<option value="ema.50">EMA 50</option>
+								<option value="macd.line">MACD line</option>
+								<option value="macd.hist">MACD hist</option>
+								<option value="obv">OBV</option>
+								<option value="atr.14">ATR % 14</option>
+								<option value="adx.14">ADX 14</option>
+							</select>
+						</label>
+					</div>
 				</div>
 			</div>
-		</div>
 		<div id="indicator-popup" class="indicator-popup">
 			<div class="indicator-popup-header">
 				<div id="indicator-popup-title" class="indicator-popup-title"></div>

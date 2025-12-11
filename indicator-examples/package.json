@@ -5,7 +5,8 @@
         "build": "tsc",
         "compile": "tsc && node compile.mjs",
         "dev": "vite --config src/vite.config.js",
-        "build:examples:site": "vite build --config src/vite.config.js && node build-website.mjs"
+        "build:examples:site": "vite build --config src/vite.config.js && node build-website.mjs",
+        "test:synthetic-modes": "node --test tests/synthetic-modes.test.mjs"
     },
     "devDependencies": {
         "typescript": "5.5.4",
@@ -14,6 +15,7 @@
     "dependencies": {
         "dts-bundle-generator": "^9.5.1",
         "echarts": "^6.0.0",
+        "echarts-gl": "^2.0.0",
         "fancy-canvas": "^2.1.0",
         "globby": "^14.1.0",
         "lightweight-charts": "file:.."
