@@ -462,6 +462,81 @@ function applyRangeToData(data, key) {
 	return sliced.slice(sliced.length - maxBars);
 }
 
+function computeVisiblePriceRange(slice, options = {}) {
+	if (!Array.isArray(slice) || slice.length === 0) {
+		return null;
+	}
+	const {
+		focusRatio = 0.35,
+		minFocusBars = 60,
+		lowerQuantile = 0.02,
+		upperQuantile = 0.98,
+		isLogScale = false,
+	} = options;
+	const focusCount = Math.max(
+		minFocusBars,
+		Math.floor(slice.length * Math.min(Math.max(focusRatio, 0), 1))
+	);
+	const focusSlice = slice.slice(-focusCount);
+	const samples = [];
+	for (const bar of focusSlice) {
+		if (typeof bar.low === 'number' && Number.isFinite(bar.low)) {
+			samples.push(bar.low);
+		}
+		if (typeof bar.high === 'number' && Number.isFinite(bar.high)) {
+			samples.push(bar.high);
+		}
+	}
+	if (!samples.length) {
+		return null;
+	}
+	samples.sort((a, b) => a - b);
+	const clampIndex = value =>
+		Math.min(samples.length - 1, Math.max(0, value));
+	const lowerIdx = clampIndex(
+		Math.floor((samples.length - 1) * lowerQuantile)
+	);
+	const upperIdx = clampIndex(
+		Math.ceil((samples.length - 1) * upperQuantile)
+	);
+	let lower = samples[lowerIdx];
+	let upper = samples[upperIdx];
+	if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+		lower = samples[0];
+		upper = samples[samples.length - 1];
+	}
+	if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+		return null;
+	}
+	if (lower === upper) {
+		const offset = Math.max(Math.abs(lower) * 0.01, 1);
+		lower -= offset;
+		upper += offset;
+	}
+	let span = upper - lower;
+	if (!Number.isFinite(span) || span <= 0) {
+		span = Math.max(Math.abs(upper) * 0.05, 1);
+	}
+	const padding = span * 0.08;
+	let min = lower - padding;
+	let max = upper + padding;
+	if (isLogScale) {
+		if (min <= 0) {
+			const positiveSample = samples.find(v => v > 0);
+			min = positiveSample
+				? Math.max(positiveSample * 0.8, 1e-6)
+				: 1e-6;
+		}
+		if (max <= min) {
+			max = min * 1.2;
+		}
+	}
+	if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+		return null;
+	}
+	return { min, max };
+}
+
 function estimateAtrRange(candles, length) {
 	const len = candles.length;
 	if (len < 2) return Number.NaN;
@@ -2705,59 +2780,35 @@ function buildOption() {
 		}
 	}
 
-	let priceMin = Number.POSITIVE_INFINITY;
-	let priceMax = Number.NEGATIVE_INFINITY;
-	for (const bar of data) {
-		if (bar.low < priceMin) priceMin = bar.low;
-		if (bar.high > priceMax) priceMax = bar.high;
-	}
-	if (!Number.isFinite(priceMin) || !Number.isFinite(priceMax)) {
-		priceMin = 0;
-		priceMax = 1;
-	}
 	const axisWindowBars = Math.min(
 		data.length,
 		Math.max(120, Math.floor(data.length * 0.5))
 	);
 	const axisSlice =
 		axisWindowBars > 0 ? data.slice(data.length - axisWindowBars) : data.slice();
-	let axisRangeMin = Number.POSITIVE_INFINITY;
-	let axisRangeMax = Number.NEGATIVE_INFINITY;
-	for (const bar of axisSlice) {
-		if (typeof bar.low === 'number' && Number.isFinite(bar.low) && bar.low < axisRangeMin) {
-			axisRangeMin = bar.low;
-		}
-		if (typeof bar.high === 'number' && Number.isFinite(bar.high) && bar.high > axisRangeMax) {
-			axisRangeMax = bar.high;
-		}
+	let paddedRange = computeVisiblePriceRange(axisSlice, {
+		isLogScale,
+	});
+	if (!paddedRange) {
+		paddedRange = computeVisiblePriceRange(data, { isLogScale });
 	}
-	if (!Number.isFinite(axisRangeMin) || !Number.isFinite(axisRangeMax)) {
-		axisRangeMin = priceMin;
-		axisRangeMax = priceMax;
+	if (!paddedRange) {
+		paddedRange = { min: 0, max: 1 };
 	}
-	if (!Number.isFinite(axisRangeMin) || !Number.isFinite(axisRangeMax)) {
-		axisRangeMin = 0;
-		axisRangeMax = 1;
+	let axisMinValue = Number.isFinite(paddedRange.min) ? paddedRange.min : undefined;
+	let axisMaxValue = Number.isFinite(paddedRange.max) ? paddedRange.max : undefined;
+	if (isLogScale && axisMinValue !== undefined && axisMinValue <= 0) {
+		axisMinValue = 1e-6;
 	}
-	const axisSpan = axisRangeMax - axisRangeMin;
-	const basePad =
-		axisSpan > 0
-			? axisSpan * 0.06
-			: Math.max(Math.abs(axisRangeMax) * 0.03, 1);
-	let axisMin = axisRangeMin - basePad;
-	let axisMax = axisRangeMax + basePad;
-	if (axisMin === axisMax) {
-		if (axisMin === 0) {
-			axisMax = 1;
-		} else {
-			const offset = Math.abs(axisMin) * 0.03 || 1;
-			axisMin -= offset;
-			axisMax += offset;
-		}
+	if (
+		axisMinValue !== undefined &&
+		axisMaxValue !== undefined &&
+		axisMaxValue <= axisMinValue
+	) {
+		axisMaxValue = axisMinValue + 1;
 	}
-	if (isLogScale && axisMin <= 0) {
-		axisMin = Math.max(1e-6, axisRangeMin * 0.8);
-	}
+	const yAxisMin = axisMinValue;
+	const yAxisMax = axisMaxValue;
 
 	const isHeikinMode = chartMode === 'heikin';
 	const isOhlcMode = chartMode === 'ohlc';
@@ -3297,16 +3348,23 @@ function buildOption() {
 	}
 
 	const yAxis = [
-		{
-			type: mainAxisType,
-			gridIndex: 0,
-			scale: true,
-			min: axisMin,
-			max: axisMax,
-			axisLine: { lineStyle: { color: 'rgba(148,163,184,0.6)' } },
-			axisLabel: { color: '#9ca3af' },
-			splitLine: { lineStyle: { color: 'rgba(30,64,175,0.35)' } },
-		},
+		(() => {
+			const axisOptions = {
+				type: mainAxisType,
+				gridIndex: 0,
+				scale: true,
+				axisLine: { lineStyle: { color: 'rgba(148,163,184,0.6)' } },
+				axisLabel: { color: '#9ca3af' },
+				splitLine: { lineStyle: { color: 'rgba(30,64,175,0.35)' } },
+			};
+			if (yAxisMin !== undefined) {
+				axisOptions.min = yAxisMin;
+			}
+			if (yAxisMax !== undefined) {
+				axisOptions.max = yAxisMax;
+			}
+			return axisOptions;
+		})(),
 		{
 			type: 'value',
 			gridIndex: 0,
@@ -3886,6 +3944,12 @@ function buildOption() {
 		series,
 	};
 
+	const yAxis3dMin = Number.isFinite(yAxisMin) ? yAxisMin : 0;
+	let yAxis3dMax = Number.isFinite(yAxisMax) ? yAxisMax : yAxis3dMin + 1;
+	if (yAxis3dMax <= yAxis3dMin) {
+		yAxis3dMax = yAxis3dMin + 1;
+	}
+
 	if (use3dMain) {
 		option.grid3D = {
 			viewControl: {
@@ -3912,8 +3976,8 @@ function buildOption() {
 		option.yAxis3D = {
 			type: 'value',
 			name: 'Price',
-			min: paddedMin,
-			max: paddedMax,
+			min: yAxis3dMin,
+			max: yAxis3dMax,
 			axisLabel: { color: '#9ca3af' },
 			axisLine: { lineStyle: { color: 'rgba(148,163,184,0.6)' } },
 		};
